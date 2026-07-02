@@ -1,0 +1,1765 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIATCC — Sistema Internacional de Alerta Temprana para Crisis Climáticas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0E17;
+    --surface:#141B2D;
+    --surface-2:#1B2438;
+    --accent:#3DDBD9;
+    --accent-dim: rgba(61,219,217,0.14);
+    --warn:#F5C451;
+    --alert-a:#FF6B4A;
+    --alert-b:#E63946;
+    --text:#F4F7FB;
+    --text-secondary:#8B95A8;
+    --success:#4ADE80;
+    --line: rgba(139,149,168,0.18);
+    --display: 'Space Grotesk', sans-serif;
+    --body: 'Inter', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+
+  html{scroll-behavior:smooth;}
+
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--body);
+    overflow-x:hidden;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  ::selection{background:var(--accent);color:var(--bg);}
+
+  :focus-visible{
+    outline:2px solid var(--accent);
+    outline-offset:3px;
+    border-radius:2px;
+  }
+
+  .grain{
+    position:fixed;
+    inset:0;
+    z-index:200;
+    pointer-events:none;
+    opacity:0.035;
+    mix-blend-mode:overlay;
+    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%25" height="100%25" filter="url(%23n)"/></svg>');
+  }
+
+  /* ---------- Utility ---------- */
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:0.75rem;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--accent);
+    display:flex;
+    align-items:center;
+    gap:0.6rem;
+  }
+  .eyebrow::before{
+    content:'';
+    width:24px;height:1px;
+    background:var(--accent);
+    display:inline-block;
+  }
+
+  .reveal{
+    opacity:0;
+    transform:translateY(24px);
+    transition:opacity 0.9s ease, transform 0.9s ease;
+  }
+  .reveal.is-visible{opacity:1;transform:translateY(0);}
+  .reveal-delay-1.is-visible{transition-delay:0.12s;}
+  .reveal-delay-2.is-visible{transition-delay:0.24s;}
+  .reveal-delay-3.is-visible{transition-delay:0.36s;}
+
+  @media (prefers-reduced-motion: reduce){
+    .reveal{opacity:1;transform:none;transition:none;}
+    html{scroll-behavior:auto;}
+  }
+
+  /* ---------- Top brand ---------- */
+  .brand{
+    position:fixed;
+    top:2rem;left:2rem;
+    z-index:50;
+    font-family:var(--display);
+    font-weight:600;
+    font-size:1rem;
+    letter-spacing:0.04em;
+    display:flex;
+    align-items:center;
+    gap:0.6rem;
+    color:var(--text);
+    mix-blend-mode:normal;
+    cursor:pointer;
+  }
+  .brand .dot{
+    width:8px;height:8px;
+    border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 12px var(--accent);
+    animation:pulse-dot 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse-dot{
+    0%,100%{opacity:1;}
+    50%{opacity:0.4;}
+  }
+
+  /* ---------- Progress nav ---------- */
+  .progress-nav{
+    position:fixed;
+    right:2rem;top:50%;
+    transform:translateY(-50%);
+    z-index:50;
+    display:flex;
+    flex-direction:column;
+    gap:1.1rem;
+    padding:2px 0;
+  }
+  .progress-nav::before{
+    content:'';
+    position:absolute;
+    left:4px;top:4px;
+    width:1px;
+    height:calc(100% - 8px);
+    background:var(--line);
+  }
+  .progress-nav::after{
+    content:'';
+    position:absolute;
+    left:4px;top:4px;
+    width:1px;
+    height:calc((100% - 8px) * var(--scroll-progress, 0));
+    background:var(--accent);
+    box-shadow:0 0 6px var(--accent);
+    transition:height 0.15s linear;
+  }
+  .progress-nav button{
+    width:9px;height:9px;
+    border-radius:50%;
+    border:1px solid var(--text-secondary);
+    background:var(--bg);
+    cursor:pointer;
+    padding:0;
+    position:relative;
+    z-index:1;
+    transition:background 0.3s, border-color 0.3s, transform 0.3s;
+  }
+  .progress-nav button.active{
+    background:var(--accent);
+    border-color:var(--accent);
+    transform:scale(1.3);
+  }
+  .progress-nav button::after{
+    content:attr(data-label);
+    position:absolute;
+    right:20px;top:50%;
+    transform:translateY(-50%);
+    font-family:var(--mono);
+    font-size:0.7rem;
+    color:var(--text-secondary);
+    white-space:nowrap;
+    opacity:0;
+    transition:opacity 0.25s;
+    pointer-events:none;
+  }
+  .progress-nav button:hover::after,
+  .progress-nav button:focus-visible::after{opacity:1;}
+
+  @media (max-width:860px){
+    .progress-nav{display:none;}
+  }
+
+  /* ---------- Mobile bottom nav ---------- */
+  .mobile-nav{
+    display:none;
+  }
+  @media (max-width:860px){
+    .mobile-nav{
+      display:flex;
+      position:fixed;
+      bottom:1.4rem;left:50%;
+      transform:translateX(-50%);
+      z-index:50;
+      gap:0.9rem;
+      background:rgba(20,27,45,0.75);
+      backdrop-filter:blur(10px);
+      border:1px solid var(--line);
+      padding:0.7rem 1rem;
+      border-radius:100px;
+    }
+    .mobile-nav button{
+      width:8px;height:8px;
+      border-radius:50%;
+      border:1px solid var(--text-secondary);
+      background:transparent;
+      padding:0;
+      cursor:pointer;
+      transition:background 0.3s, border-color 0.3s, transform 0.3s;
+    }
+    .mobile-nav button.active{
+      background:var(--accent);
+      border-color:var(--accent);
+      transform:scale(1.35);
+    }
+  }
+
+  /* ---------- Skip link ---------- */
+  .skip-link{
+    position:absolute;
+    left:1rem;top:-3rem;
+    z-index:200;
+    background:var(--accent);
+    color:var(--bg);
+    padding:0.6rem 1rem;
+    border-radius:6px;
+    font-family:var(--mono);
+    font-size:0.8rem;
+    text-decoration:none;
+    transition:top 0.25s ease;
+  }
+  .skip-link:focus{top:1rem;}
+
+  /* ---------- Section base ---------- */
+  section{
+    position:relative;
+    padding:0 6vw;
+  }
+
+  .section-inner{
+    max-width:1080px;
+    margin:0 auto;
+  }
+
+  /* ---------- ACT I — Hero ---------- */
+  #act-1{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    text-align:center;
+    overflow:hidden;
+  }
+
+  #hero-video{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    object-position:center 38%;
+    filter:brightness(0.42) saturate(0.85) contrast(1.08);
+    z-index:0;
+    transform:scale(1.06);
+    animation:ken-burns 24s ease-in-out infinite alternate;
+  }
+  @keyframes ken-burns{
+    0%{transform:scale(1.06) translateY(0);}
+    100%{transform:scale(1.16) translateY(-1.5%);}
+  }
+  @media (prefers-reduced-motion: reduce){
+    #hero-video{animation:none;transform:scale(1.06);}
+  }
+
+  .hero-overlay{
+    position:absolute;
+    inset:0;
+    z-index:1;
+    background:
+      radial-gradient(ellipse at 50% 40%, rgba(10,14,23,0.15) 0%, rgba(10,14,23,0.55) 65%, var(--bg) 100%),
+      linear-gradient(180deg, rgba(10,14,23,0.35) 0%, rgba(10,14,23,0.25) 40%, var(--bg) 100%);
+  }
+
+  .hero-glow{
+    position:absolute;
+    width:560px;height:560px;
+    left:50%;top:50%;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    background:radial-gradient(circle, rgba(61,219,217,0.10), transparent 70%);
+    pointer-events:none;
+    z-index:2;
+    transition:left 0.5s ease-out, top 0.5s ease-out;
+  }
+  @media (max-width:860px), (pointer:coarse){
+    .hero-glow{display:none;}
+  }
+
+  #hero-canvas{
+    position:absolute;
+    inset:0;
+    z-index:2;
+    opacity:0.4;
+    mix-blend-mode:screen;
+  }
+
+  .hero-content{
+    position:relative;
+    z-index:3;
+    max-width:900px;
+  }
+
+  .hero-content > *{
+    opacity:0;
+    transform:translateY(18px);
+    animation:hero-in 1s ease forwards;
+  }
+  .hero-content > .hero-eyebrow{animation-delay:0.3s;}
+  .hero-content > .hero-stat{animation-delay:0.5s;}
+  .hero-content > .hero-label{animation-delay:0.75s;}
+  .hero-content > .hero-source{animation-delay:0.95s;}
+  @keyframes hero-in{
+    to{opacity:1;transform:translateY(0);}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .hero-content > *{animation:none;opacity:1;transform:none;}
+  }
+
+  .hero-eyebrow{
+    justify-content:center;
+    margin-bottom:2rem;
+  }
+  .hero-eyebrow::before{display:none;}
+
+  .hero-stat{
+    font-family:var(--display);
+    font-weight:700;
+    font-size:clamp(4rem, 13vw, 9.5rem);
+    line-height:0.95;
+    letter-spacing:-0.02em;
+    background:linear-gradient(180deg, #FFFFFF 0%, var(--accent) 140%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+
+  .hero-label{
+    font-size:1.15rem;
+    color:var(--text-secondary);
+    max-width:560px;
+    margin:1.5rem auto 0;
+    font-weight:400;
+  }
+
+  .hero-source{
+    font-family:var(--mono);
+    font-size:0.72rem;
+    color:var(--text-secondary);
+    opacity:0.6;
+    margin-top:0.9rem;
+  }
+
+  .scroll-cue{
+    position:absolute;
+    bottom:2.8rem;left:50%;
+    transform:translateX(-50%);
+    z-index:3;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:0.6rem;
+    color:var(--text-secondary);
+    font-family:var(--mono);
+    font-size:0.7rem;
+    letter-spacing:0.1em;
+  }
+  .scroll-cue .line{
+    width:1px;height:34px;
+    background:linear-gradient(var(--text-secondary), transparent);
+    animation:scroll-flow 1.8s ease-in-out infinite;
+  }
+  @keyframes scroll-flow{
+    0%{transform:scaleY(0.3);transform-origin:top;}
+    50%{transform:scaleY(1);transform-origin:top;}
+    51%{transform-origin:bottom;}
+    100%{transform:scaleY(0.3);transform-origin:bottom;}
+  }
+
+  /* ---------- Stat strip (still Act I) ---------- */
+  #stat-strip{
+    padding-top:8vh;
+    padding-bottom:14vh;
+  }
+
+  .stat-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:1.5px;
+    background:var(--line);
+    border:1px solid var(--line);
+  }
+
+  .data-card{
+    background:var(--bg);
+    padding:2.6rem 2rem;
+    position:relative;
+    transition:background 0.4s ease;
+  }
+  .data-card::before{
+    content:'';
+    position:absolute;
+    top:0;left:0;
+    width:0;height:2px;
+    background:var(--accent);
+    transition:width 0.5s ease;
+  }
+  .data-card:hover{background:var(--surface);}
+  .data-card:hover::before{width:100%;}
+
+  .data-card .value{
+    font-family:var(--display);
+    font-weight:600;
+    font-size:2.6rem;
+    color:var(--text);
+  }
+  .data-card .value span{color:var(--accent);}
+
+  .data-card .spark{
+    width:100%;
+    height:28px;
+    margin-bottom:1rem;
+    opacity:0.55;
+  }
+
+  .data-card .label{
+    margin-top:0.6rem;
+    color:var(--text-secondary);
+    font-size:0.92rem;
+    max-width:24ch;
+  }
+
+  @media (max-width:760px){
+    .stat-grid{grid-template-columns:1fr;}
+  }
+
+  /* ---------- ACT II — The Gap ---------- */
+  #act-2{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    padding-top:10vh;padding-bottom:10vh;
+    background:linear-gradient(180deg, var(--bg) 0%, #0D1424 50%, var(--bg) 100%);
+  }
+
+  .gap-header{
+    max-width:680px;
+    margin-bottom:5rem;
+  }
+
+  .gap-header h2{
+    font-family:var(--display);
+    font-weight:600;
+    font-size:clamp(1.9rem, 4vw, 2.7rem);
+    line-height:1.2;
+    margin-top:1.2rem;
+  }
+  .gap-header h2 em{
+    color:var(--accent);
+    font-style:normal;
+  }
+
+  .gap-cols{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:2.5rem;
+  }
+
+  .gap-item .tag{
+    font-family:var(--mono);
+    font-size:0.72rem;
+    color:var(--text-secondary);
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    display:block;
+    margin-bottom:1rem;
+  }
+
+  .gap-item h3{
+    font-family:var(--display);
+    font-size:1.35rem;
+    font-weight:600;
+    margin-bottom:0.9rem;
+  }
+
+  .gap-item p{
+    color:var(--text-secondary);
+    font-size:0.95rem;
+  }
+
+  .gap-item{
+    border-top:1px solid var(--line);
+    padding-top:1.6rem;
+    transition:border-color 0.4s ease;
+  }
+  .gap-item:hover{border-top-color:var(--accent);}
+  .gap-item:hover h3{color:var(--accent);transition:color 0.3s ease;}
+
+  @media (max-width:760px){
+    .gap-cols{grid-template-columns:1fr;gap:2.2rem;}
+  }
+
+  /* ---------- ACT III — The System ---------- */
+  #act-3{
+    min-height:100vh;
+    padding-top:12vh;
+    padding-bottom:16vh;
+  }
+
+  .system-header{
+    max-width:640px;
+    margin-bottom:5rem;
+  }
+
+  .system-header h2{
+    font-family:var(--display);
+    font-weight:600;
+    font-size:clamp(2rem, 4.4vw, 3rem);
+    margin-top:1.2rem;
+    line-height:1.15;
+  }
+
+  .system-header p{
+    color:var(--text-secondary);
+    margin-top:1.2rem;
+    font-size:1.02rem;
+    max-width:52ch;
+  }
+
+  .architecture{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:0;
+    position:relative;
+  }
+
+  .layer{
+    display:grid;
+    grid-template-columns:64px 1fr;
+    gap:1.6rem;
+    padding:2.4rem 0;
+    border-top:1px solid var(--line);
+    position:relative;
+    transition:padding-left 0.4s ease;
+  }
+  .layer:last-child{border-bottom:1px solid var(--line);}
+  .layer:hover{padding-left:0.8rem;}
+
+  .layer-index{
+    font-family:var(--mono);
+    font-size:0.78rem;
+    color:var(--text-secondary);
+    padding-top:0.3rem;
+  }
+
+  .layer-node{
+    width:10px;height:10px;
+    border-radius:50%;
+    border:1.5px solid var(--accent);
+    background:var(--bg);
+    margin-top:0.4rem;
+    position:relative;
+  }
+  .layer.is-visible .layer-node{
+    background:var(--accent);
+    box-shadow:0 0 14px var(--accent);
+    transition:background 0.6s ease 0.2s, box-shadow 0.6s ease 0.2s;
+  }
+
+  .layer-connector{
+    position:absolute;
+    left:5px;top:64px;
+    width:1px;
+    height:calc(100% - 40px);
+    background:var(--line);
+    overflow:hidden;
+  }
+  .layer-connector::after{
+    content:'';
+    position:absolute;
+    top:0;left:0;
+    width:100%;height:100%;
+    background:var(--accent);
+    transform:scaleY(0);
+    transform-origin:top;
+    transition:transform 1s ease 0.4s;
+  }
+  .layer.is-visible .layer-connector::after{transform:scaleY(1);}
+
+  .layer-body h3{
+    font-family:var(--display);
+    font-weight:600;
+    font-size:1.5rem;
+    display:flex;
+    align-items:center;
+    gap:0.9rem;
+  }
+
+  .layer-icon{
+    width:22px;height:22px;
+    color:var(--accent);
+    flex-shrink:0;
+  }
+  .layer-icon svg{width:100%;height:100%;}
+
+  .layer-body .layer-tag{
+    font-family:var(--mono);
+    font-size:0.68rem;
+    color:var(--accent);
+    background:var(--accent-dim);
+    border:1px solid rgba(61,219,217,0.35);
+    padding:0.2rem 0.6rem;
+    border-radius:100px;
+    letter-spacing:0.06em;
+  }
+
+  .layer-body p{
+    color:var(--text-secondary);
+    margin-top:0.8rem;
+    max-width:60ch;
+    font-size:0.96rem;
+  }
+
+  .layer-detail{
+    margin-top:1.3rem;
+    display:flex;
+    flex-wrap:wrap;
+    gap:0.6rem;
+  }
+  .layer-detail span{
+    font-family:var(--mono);
+    font-size:0.72rem;
+    color:var(--text-secondary);
+    border:1px solid var(--line);
+    padding:0.35rem 0.7rem;
+    border-radius:6px;
+  }
+
+  /* ---------- ACT IV — Simulation ---------- */
+  #act-4{
+    min-height:100vh;
+    padding-top:12vh;
+    padding-bottom:14vh;
+  }
+
+  .sim-header{
+    max-width:680px;
+    margin-bottom:3rem;
+  }
+  .sim-header h2{
+    font-family:var(--display);
+    font-weight:600;
+    font-size:clamp(2rem, 4.4vw, 3rem);
+    margin-top:1.2rem;
+    line-height:1.15;
+  }
+  .sim-header p{
+    color:var(--text-secondary);
+    margin-top:1.2rem;
+    font-size:1.02rem;
+    max-width:60ch;
+  }
+  .sim-header .scenario-tag{
+    display:inline-block;
+    margin-top:1.4rem;
+    font-family:var(--mono);
+    font-size:0.72rem;
+    color:var(--text-secondary);
+    border:1px solid var(--line);
+    padding:0.4rem 0.8rem;
+    border-radius:6px;
+  }
+
+  /* Scrubber */
+  .scrubber{
+    margin-bottom:3rem;
+  }
+  .scrubber-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:1.4rem;
+    gap:1rem;
+    flex-wrap:wrap;
+  }
+  .scrubber-track{
+    position:relative;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+  }
+  .scrubber-track::before{
+    content:'';
+    position:absolute;
+    top:6px;left:0;right:0;
+    height:1px;
+    background:var(--line);
+  }
+  .scrubber-track::after{
+    content:'';
+    position:absolute;
+    top:6px;left:0;
+    height:1px;
+    background:var(--accent);
+    width:calc(var(--phase-progress, 0) * 100%);
+    box-shadow:0 0 6px var(--accent);
+    transition:width 0.6s ease;
+  }
+  .scrubber-step{
+    position:relative;
+    background:none;
+    border:none;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:0.7rem;
+    padding:0;
+    flex:1;
+    color:var(--text-secondary);
+  }
+  .scrubber-step .marker{
+    width:13px;height:13px;
+    border-radius:50%;
+    border:1.5px solid var(--text-secondary);
+    background:var(--bg);
+    transition:background 0.3s, border-color 0.3s, transform 0.3s, box-shadow 0.3s;
+  }
+  .scrubber-step .step-time{
+    font-family:var(--mono);
+    font-size:0.68rem;
+    letter-spacing:0.04em;
+  }
+  .scrubber-step.active .marker{
+    background:var(--accent);
+    border-color:var(--accent);
+    box-shadow:0 0 10px var(--accent);
+    transform:scale(1.2);
+  }
+  .scrubber-step.active .step-time{color:var(--accent);}
+  .scrubber-step.done .marker{background:var(--text-secondary);border-color:var(--text-secondary);}
+
+  .play-btn{
+    font-family:var(--mono);
+    font-size:0.75rem;
+    color:var(--text);
+    background:var(--surface);
+    border:1px solid var(--line);
+    padding:0.6rem 1.1rem;
+    border-radius:100px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:0.6rem;
+    transition:border-color 0.3s, background 0.3s;
+  }
+  .play-btn:hover{border-color:var(--accent);}
+  .play-btn svg{width:12px;height:12px;}
+
+  /* Layout */
+  .sim-grid{
+    display:grid;
+    grid-template-columns:1.35fr 1fr;
+    gap:2rem;
+    align-items:start;
+  }
+  @media (max-width:900px){
+    .sim-grid{grid-template-columns:1fr;}
+  }
+
+  .sim-panel{
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:var(--surface);
+    overflow:hidden;
+  }
+  .sim-panel-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:0.9rem 1.2rem;
+    border-bottom:1px solid var(--line);
+    font-family:var(--mono);
+    font-size:0.68rem;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--text-secondary);
+  }
+  .sim-panel-head .rec-dot{
+    width:6px;height:6px;
+    border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 6px var(--accent);
+    animation:pulse-dot 2.4s ease-in-out infinite;
+  }
+
+  /* Map */
+  #sim-map{
+    width:100%;
+    height:auto;
+    display:block;
+  }
+  #cyclone{
+    transition:transform 1.4s cubic-bezier(0.4,0,0.2,1);
+    transform-origin:center;
+  }
+  #cyclone .spin{
+    transform-origin:center;
+    animation:spin 6s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  #risk-zone{
+    transition:opacity 1.2s ease, fill 1.2s ease, rx 1.2s ease, ry 1.2s ease;
+  }
+  .route-line{
+    fill:none;
+    stroke:var(--accent);
+    stroke-width:1.5;
+    stroke-dasharray:6 4;
+    transition:stroke-dashoffset 1.4s ease, opacity 0.6s ease;
+    opacity:0;
+  }
+  .route-line.active{opacity:0.8;}
+  .shelter-dot{
+    transition:fill 0.6s ease, r 0.6s ease;
+  }
+  .shelter-label{
+    font-family:var(--mono);
+    font-size:7px;
+    fill:var(--text-secondary);
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    #cyclone{transition:none;}
+    #cyclone .spin{animation:none;}
+    .route-line{transition:none;}
+  }
+
+  /* Side panel: gauge + alert + stats */
+  .side-stack{
+    display:flex;
+    flex-direction:column;
+    gap:1.5rem;
+  }
+
+  .gauge-wrap{
+    padding:1.6rem 1.2rem 1.2rem;
+    text-align:center;
+  }
+  .gauge-title{
+    font-family:var(--mono);
+    font-size:0.68rem;
+    color:var(--text-secondary);
+    letter-spacing:0.04em;
+    margin-bottom:0.8rem;
+    transition:opacity 0.3s ease;
+  }
+  .gauge-value{
+    font-family:var(--display);
+    font-weight:700;
+    font-size:2.4rem;
+    margin-top:-2.2rem;
+  }
+  .gauge-label{
+    font-family:var(--mono);
+    font-size:0.75rem;
+    margin-top:0.2rem;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+  }
+
+  .alert-panel{
+    border-left:3px solid var(--line);
+    background:var(--surface);
+    border-radius:0 10px 10px 0;
+    padding:1.1rem 1.3rem;
+    transition:border-color 0.5s ease, background 0.5s ease;
+  }
+  .alert-panel.is-active{
+    border-left-color:var(--alert-b);
+    background:linear-gradient(90deg, rgba(230,57,70,0.12), var(--surface) 40%);
+    animation:alert-pulse 2.2s ease-in-out infinite;
+  }
+  .alert-panel.is-resolved{
+    border-left-color:var(--success);
+    background:linear-gradient(90deg, rgba(74,222,128,0.12), var(--surface) 40%);
+  }
+  @keyframes alert-pulse{
+    0%,100%{box-shadow:0 0 0 rgba(230,57,70,0);}
+    50%{box-shadow:0 0 18px rgba(230,57,70,0.15);}
+  }
+  .alert-panel .a-tag{
+    font-family:var(--mono);
+    font-size:0.66rem;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--text-secondary);
+    display:block;
+    margin-bottom:0.4rem;
+  }
+  .alert-panel.is-active .a-tag{color:var(--alert-b);}
+  .alert-panel.is-resolved .a-tag{color:var(--success);}
+  .alert-panel .a-title{
+    font-family:var(--display);
+    font-weight:600;
+    font-size:1.05rem;
+  }
+  .alert-panel .a-desc{
+    color:var(--text-secondary);
+    font-size:0.86rem;
+    margin-top:0.4rem;
+  }
+
+  .recipients{
+    display:flex;
+    flex-wrap:wrap;
+    gap:0.5rem;
+    margin-top:0.9rem;
+  }
+  .recipients span{
+    font-family:var(--mono);
+    font-size:0.66rem;
+    padding:0.3rem 0.6rem;
+    border-radius:100px;
+    border:1px solid var(--line);
+    color:var(--text-secondary);
+    transition:border-color 0.4s ease, color 0.4s ease, background 0.4s ease;
+  }
+  .recipients span.notified{
+    border-color:var(--accent);
+    color:var(--accent);
+    background:var(--accent-dim);
+  }
+
+  .sim-stats{
+    padding:1.2rem 1.3rem;
+    display:flex;
+    flex-direction:column;
+    gap:0.9rem;
+  }
+  .sim-stat-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap:1rem;
+    padding-bottom:0.9rem;
+    border-bottom:1px solid var(--line);
+    transition:opacity 0.3s ease;
+  }
+  .sim-stat-row:last-child{border-bottom:none;padding-bottom:0;}
+  .sim-stat-row .stat-k{
+    font-size:0.85rem;
+    color:var(--text-secondary);
+  }
+  .sim-stat-row .stat-v{
+    font-family:var(--mono);
+    font-size:0.92rem;
+    color:var(--text);
+    white-space:nowrap;
+  }
+
+  .sim-phase-copy{
+    margin-top:1.6rem;
+    max-width:640px;
+  }
+  .sim-phase-copy .phase-tag{
+    font-family:var(--mono);
+    font-size:0.72rem;
+    color:var(--accent);
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+  }
+  .sim-phase-copy h3{
+    font-family:var(--display);
+    font-size:1.4rem;
+    font-weight:600;
+    margin-top:0.5rem;
+  }
+  .sim-phase-copy p{
+    color:var(--text-secondary);
+    margin-top:0.6rem;
+    font-size:0.96rem;
+  }
+
+  /* ---------- Teaser (next acts) ---------- */
+  #teaser{
+    min-height:70vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    border-top:1px solid var(--line);
+  }
+
+  #teaser .eyebrow{justify-content:center;}
+  #teaser .eyebrow::before{display:none;}
+
+  #teaser h2{
+    font-family:var(--display);
+    font-weight:600;
+    font-size:clamp(1.8rem, 3.6vw, 2.5rem);
+    margin-top:1.2rem;
+    max-width:640px;
+  }
+
+  #teaser p{
+    color:var(--text-secondary);
+    margin-top:1.1rem;
+    max-width:480px;
+  }
+
+  .teaser-status{
+    margin-top:2.4rem;
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:0;
+    font-family:var(--mono);
+    font-size:0.75rem;
+    color:var(--text-secondary);
+    border:1px solid var(--line);
+    border-radius:8px;
+    overflow:hidden;
+  }
+  .teaser-status span{
+    padding:0.8rem 1.2rem;
+    border-right:1px solid var(--line);
+  }
+  .teaser-status span:last-child{border-right:none;}
+  .teaser-status .done{color:var(--success);}
+  .teaser-status .pending{color:var(--text-secondary);}
+
+  @media (max-width:640px){
+    .teaser-status{flex-direction:column;}
+    .teaser-status span{border-right:none;border-bottom:1px solid var(--line);}
+    .teaser-status span:last-child{border-bottom:none;}
+  }
+
+  footer{
+    text-align:center;
+    padding:3rem 0 2.5rem;
+    font-family:var(--mono);
+    font-size:0.7rem;
+    color:var(--text-secondary);
+    opacity:0.5;
+  }
+</style>
+</head>
+<body>
+
+<div class="grain"></div>
+
+<a href="#act-1" class="skip-link">Saltar al contenido</a>
+
+<div class="brand" id="brand-logo" role="button" tabindex="0" aria-label="Volver al inicio"><span class="dot"></span>SIATCC</div>
+
+<nav class="progress-nav" id="progress-nav" aria-label="Progreso de la narrativa">
+  <button data-target="act-1" data-label="I · La crisis" class="active" aria-label="Ir al Acto I: La crisis"></button>
+  <button data-target="act-2" data-label="II · El diagnóstico" aria-label="Ir al Acto II: El diagnóstico"></button>
+  <button data-target="act-3" data-label="III · El sistema" aria-label="Ir al Acto III: El sistema"></button>
+  <button data-target="act-4" data-label="IV · La simulación" aria-label="Ir al Acto IV: La simulación"></button>
+  <button data-target="teaser" data-label="V · Próximamente" aria-label="Ir al Acto V"></button>
+</nav>
+
+<nav class="mobile-nav" id="mobile-nav" aria-label="Progreso de la narrativa (móvil)">
+  <button data-target="act-1" class="active" aria-label="Ir al Acto I"></button>
+  <button data-target="act-2" aria-label="Ir al Acto II"></button>
+  <button data-target="act-3" aria-label="Ir al Acto III"></button>
+  <button data-target="act-4" aria-label="Ir al Acto IV"></button>
+  <button data-target="teaser" aria-label="Ir al Acto V"></button>
+</nav>
+
+<!-- ================= ACT I ================= -->
+<section id="act-1">
+  <video id="hero-video" autoplay muted loop playsinline preload="auto">
+    <source src="siatcc-earth-bg.mp4" type="video/mp4">
+  </video>
+  <div class="hero-overlay"></div>
+  <div class="hero-glow" id="hero-glow"></div>
+  <canvas id="hero-canvas"></canvas>
+  <div class="hero-content">
+    <div class="eyebrow hero-eyebrow">Acto I — El planeta bajo presión</div>
+    <div class="hero-stat">216M</div>
+    <p class="hero-label">de personas podrían verse forzadas a desplazarse dentro de sus propios países por impactos climáticos de aquí a 2050.</p>
+    <p class="hero-source">Fuente: Banco Mundial, Informe Groundswell — cifra de referencia, dato ilustrativo para esta demostración</p>
+  </div>
+  <div class="scroll-cue"><span>DESPLAZA</span><span class="line"></span></div>
+</section>
+
+<section id="stat-strip">
+  <div class="section-inner">
+    <div class="stat-grid">
+      <div class="data-card reveal">
+        <svg class="spark" viewBox="0 0 120 28" preserveAspectRatio="none"><polyline points="0,20 15,18 30,22 45,14 60,16 75,8 90,10 105,4 120,6" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="value"><span>7.1</span> días</div>
+        <div class="label">tiempo promedio actual entre la detección de un evento climático extremo y la primera alerta accionable a nivel local</div>
+      </div>
+      <div class="data-card reveal reveal-delay-1">
+        <svg class="spark" viewBox="0 0 120 28" preserveAspectRatio="none"><polyline points="0,8 15,10 30,6 45,14 60,12 75,18 90,16 105,22 120,20" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="value"><span>63%</span></div>
+        <div class="label">de las alertas climáticas emitidas hoy no llegan traducidas en decisiones humanitarias concretas</div>
+      </div>
+      <div class="data-card reveal reveal-delay-2">
+        <svg class="spark" viewBox="0 0 120 28" preserveAspectRatio="none"><polyline points="0,22 15,20 30,21 45,17 60,12 75,9 90,5 105,3 120,2" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="value"><span>&lt;1h</span></div>
+        <div class="label">tiempo objetivo de anticipación accionable que el SIATCC busca ofrecer una vez desplegado</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ACT II ================= -->
+<section id="act-2">
+  <div class="section-inner">
+    <div class="gap-header reveal">
+      <div class="eyebrow">Acto II — El diagnóstico</div>
+      <h2>El problema no es la falta de datos climáticos.<br>Es que <em>llegan tarde, fragmentados y sin destinatario claro.</em></h2>
+    </div>
+
+    <div class="gap-cols">
+      <div class="gap-item reveal">
+        <span class="tag">01 — Tarde</span>
+        <h3>La alerta llega después de la decisión</h3>
+        <p>Los sistemas actuales detectan el riesgo, pero para cuando la información llega a quien puede actuar, la ventana de anticipación ya se cerró.</p>
+      </div>
+      <div class="gap-item reveal reveal-delay-1">
+        <span class="tag">02 — Fragmentado</span>
+        <h3>Nadie tiene la imagen completa</h3>
+        <p>Meteorología, agencias humanitarias y gobiernos locales operan con datos distintos, formatos distintos y sin un canal común de coordinación.</p>
+      </div>
+      <div class="gap-item reveal reveal-delay-2">
+        <span class="tag">03 — Sin acción</span>
+        <h3>El dato no se traduce en respuesta</h3>
+        <p>Una predicción precisa sin protocolo de evacuación, refugio o coordinación asociado es, en la práctica, una alerta que no salva a nadie.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ACT III ================= -->
+<section id="act-3">
+  <div class="section-inner">
+    <div class="system-header reveal">
+      <div class="eyebrow">Acto III — La respuesta</div>
+      <h2>Presentamos el SIATCC</h2>
+      <p>Una arquitectura de tres capas que conecta la detección climática con la acción humanitaria, en el tiempo que la crisis exige.</p>
+    </div>
+
+    <div class="architecture">
+
+      <div class="layer reveal" data-layer>
+        <div class="layer-index">01</div>
+        <div class="layer-node"></div>
+        <div class="layer-connector"></div>
+        <div class="layer-body">
+          <h3><span class="layer-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 7l4 4-7 7-4-4 7-7z"/><path d="M14.5 5.5l4 4"/><path d="M3 21l3.5-3.5"/><path d="M17 3l4 4"/><path d="M19 7l2-2"/></svg></span>Monitoreo <span class="layer-tag">Capa 1</span></h3>
+          <p>Red de sensores climáticos, imágenes satelitales y modelos meteorológicos integrados en un flujo de datos único y continuo.</p>
+          <div class="layer-detail">
+            <span>Satélites</span><span>Sensores terrestres</span><span>Modelos climáticos</span><span>IA de detección temprana</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="layer reveal" data-layer>
+        <div class="layer-index">02</div>
+        <div class="layer-node"></div>
+        <div class="layer-connector"></div>
+        <div class="layer-body">
+          <h3><span class="layer-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5"/><circle cx="4" cy="6" r="1.6"/><circle cx="20" cy="6" r="1.6"/><circle cx="4" cy="18" r="1.6"/><circle cx="20" cy="18" r="1.6"/><path d="M9.8 10.3L5.3 7"/><path d="M14.2 10.3L18.7 7"/><path d="M9.8 13.7L5.3 17"/><path d="M14.2 13.7L18.7 17"/></svg></span>Inteligencia <span class="layer-tag">Capa 2</span></h3>
+          <p>El Índice de Riesgo de Desplazamiento (IRD) cruza intensidad del evento, densidad poblacional, vulnerabilidad de infraestructura y capacidad de respuesta local para estimar el riesgo real de desplazamiento forzado.</p>
+          <div class="layer-detail">
+            <span>Índice IRD</span><span>Modelado predictivo</span><span>Priorización de riesgo</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="layer reveal" data-layer>
+        <div class="layer-index">03</div>
+        <div class="layer-node"></div>
+        <div class="layer-body">
+          <h3><span class="layer-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v3"/><path d="M6.3 7.3l-1.8-1.8"/><path d="M17.7 7.3l1.8-1.8"/><path d="M6 13a6 6 0 1112 0c0 3-1.5 4.5-1.5 6.5h-9C7.5 17.5 6 16 6 13z"/><path d="M9.5 19.5a2.5 2.5 0 005 0"/></svg></span>Acción coordinada <span class="layer-tag">Capa 3</span></h3>
+          <p>Alertas simultáneas y accionables para gobiernos locales, ACNUR, organizaciones humanitarias y comunidades, con rutas de evacuación y refugios ya calculados.</p>
+          <div class="layer-detail">
+            <span>Alertas multicanal</span><span>Rutas de evacuación</span><span>Coordinación humanitaria</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ================= ACT IV — SIMULATION ================= -->
+<section id="act-4">
+  <div class="section-inner">
+    <div class="sim-header reveal">
+      <div class="eyebrow">Acto IV — Vívelo</div>
+      <h2>Así respondería el SIATCC</h2>
+      <p>Recorre una emergencia climática simulada, fase por fase, y observa cómo el sistema detecta, calcula el riesgo, alerta y coordina la respuesta — antes de que la crisis llegue a su punto más crítico.</p>
+      <span class="scenario-tag">Escenario demostrativo — ciclón tropical, región costera ficticia</span>
+    </div>
+
+    <div class="scrubber reveal">
+      <div class="scrubber-top">
+        <button class="play-btn" id="play-btn" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>
+          <span id="play-btn-label">Reproducir automáticamente</span>
+        </button>
+      </div>
+      <div class="scrubber-track" id="scrubber-track" role="tablist" aria-label="Fases de la emergencia"></div>
+    </div>
+
+    <div class="sim-phase-copy reveal" id="phase-copy">
+      <span class="phase-tag" id="phase-tag"></span>
+      <h3 id="phase-title"></h3>
+      <p id="phase-desc"></p>
+    </div>
+
+    <div class="sim-grid reveal">
+      <div class="sim-panel">
+        <div class="sim-panel-head">
+          <span>Mapa regional — demostrativo</span>
+          <span class="rec-dot" aria-hidden="true"></span>
+        </div>
+        <svg id="sim-map" viewBox="0 0 600 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mapa de la región costera simulada">
+          <defs>
+            <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+              <path d="M30 0 L0 0 0 30" fill="none" stroke="var(--line)" stroke-width="0.5"/>
+            </pattern>
+            <radialGradient id="riskGrad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="var(--alert-b)" stop-opacity="0.55"/>
+              <stop offset="100%" stop-color="var(--alert-b)" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+
+          <rect width="600" height="380" fill="var(--bg)"/>
+          <rect width="600" height="380" fill="url(#grid)"/>
+
+          <!-- Landmass -->
+          <path d="M0,180 C90,150 130,210 190,200 C260,188 300,235 260,290 C220,345 90,380 0,380 Z" fill="var(--surface-2)" stroke="var(--line)" stroke-width="1"/>
+
+          <!-- Risk zone -->
+          <ellipse id="risk-zone" cx="230" cy="235" rx="70" ry="55" fill="url(#riskGrad)" opacity="0"/>
+
+          <!-- Population center -->
+          <circle cx="230" cy="235" r="4" fill="var(--text)"/>
+          <text x="238" y="232" class="shelter-label" fill="var(--text-secondary)">Zona costera</text>
+
+          <!-- Evacuation routes -->
+          <g id="routes">
+            <path class="route-line" data-route="1" d="M230,235 C200,255 170,255 150,262"/>
+            <path class="route-line" data-route="2" d="M230,235 C210,215 175,205 145,205"/>
+            <path class="route-line" data-route="3" d="M230,235 C245,270 235,300 205,315"/>
+          </g>
+
+          <!-- Shelters -->
+          <g id="shelters">
+            <circle class="shelter-dot" data-shelter="1" cx="150" cy="262" r="5" fill="var(--line)"/>
+            <text x="158" y="266" class="shelter-label">Refugio A</text>
+            <circle class="shelter-dot" data-shelter="2" cx="145" cy="205" r="5" fill="var(--line)"/>
+            <text x="153" y="209" class="shelter-label">Refugio B</text>
+            <circle class="shelter-dot" data-shelter="3" cx="205" cy="315" r="5" fill="var(--line)"/>
+            <text x="213" y="319" class="shelter-label">Refugio C</text>
+          </g>
+
+          <!-- Cyclone -->
+          <g id="cyclone" transform="translate(520,70)">
+            <g class="spin">
+              <circle r="22" fill="none" stroke="var(--alert-a)" stroke-width="1" stroke-dasharray="4 5" opacity="0.6"/>
+              <circle r="14" fill="none" stroke="var(--alert-a)" stroke-width="1" stroke-dasharray="3 4" opacity="0.8"/>
+            </g>
+            <circle r="5" fill="var(--alert-b)"/>
+          </g>
+        </svg>
+      </div>
+
+      <div class="side-stack">
+        <div class="sim-panel gauge-wrap">
+          <div class="gauge-title" id="gauge-title">Índice de Riesgo de Desplazamiento (IRD)</div>
+          <svg viewBox="0 0 200 110" width="200" height="110" style="overflow:visible;margin:0 auto;display:block;">
+            <path d="M20,100 A80,80 0 0 1 180,100" fill="none" stroke="var(--line)" stroke-width="10" stroke-linecap="round"/>
+            <path id="gauge-arc" d="M20,100 A80,80 0 0 1 180,100" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="251.2" stroke-dashoffset="251.2"/>
+          </svg>
+          <div class="gauge-value" id="gauge-value">0</div>
+          <div class="gauge-label" id="gauge-label">—</div>
+        </div>
+
+        <div class="alert-panel" id="alert-panel">
+          <span class="a-tag" id="alert-tag">Sin alerta activa</span>
+          <div class="a-title" id="alert-title">Monitoreo continuo</div>
+          <div class="a-desc" id="alert-desc">El sistema observa la región sin detectar riesgo significativo por ahora.</div>
+          <div class="recipients" id="recipients">
+            <span data-r="gobierno">Gobierno local</span>
+            <span data-r="acnur">ACNUR</span>
+            <span data-r="ongs">ONGs</span>
+            <span data-r="comunidad">Comunidad</span>
+          </div>
+        </div>
+
+        <div class="sim-panel sim-stats" id="sim-stats"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TEASER (V) ================= -->
+
+<section id="teaser">
+  <div class="eyebrow">Acto V</div>
+  <h2>La visión de escala y el cierre institucional llegan en la siguiente iteración</h2>
+  <p>Ya definimos el guion: un mapa mundial con nodos SIATCC activos y el mensaje de cierre dirigido al comité sobre qué se necesita para pasar de prototipo a piloto real.</p>
+  <div class="teaser-status">
+    <span class="done">✓ Acto I — La crisis</span>
+    <span class="done">✓ Acto II — El diagnóstico</span>
+    <span class="done">✓ Acto III — El sistema</span>
+    <span class="done">✓ Acto IV — Simulación</span>
+    <span class="pending">○ Acto V — Cierre</span>
+  </div>
+</section>
+
+<footer>SIATCC — Prototipo conceptual · Propuesta ante comité ACNUR · Todos los datos son demostrativos</footer>
+
+<script>
+// ---------- Scroll reveal ----------
+const revealEls = document.querySelectorAll('.reveal, .layer');
+const revealObserver = new IntersectionObserver((entries)=>{
+  entries.forEach(entry=>{
+    if(entry.isIntersecting){
+      entry.target.classList.add('is-visible');
+    }
+  });
+},{threshold:0.25});
+revealEls.forEach(el=>revealObserver.observe(el));
+
+// ---------- Progress nav (desktop + mobile) ----------
+const allNavButtons = document.querySelectorAll('.progress-nav button, .mobile-nav button');
+const sectionIds = ['act-1','act-2','act-3','act-4','teaser'];
+const sections = sectionIds.map(id=>document.getElementById(id));
+
+function goToSection(idx){
+  if(idx < 0 || idx >= sections.length) return;
+  sections[idx].scrollIntoView({behavior:'smooth'});
+}
+
+allNavButtons.forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.getElementById(btn.dataset.target).scrollIntoView({behavior:'smooth'});
+  });
+});
+
+let currentSectionIdx = 0;
+const sectionObserver = new IntersectionObserver((entries)=>{
+  entries.forEach(entry=>{
+    if(entry.isIntersecting){
+      const idx = sections.indexOf(entry.target);
+      if(idx === -1) return;
+      currentSectionIdx = idx;
+      allNavButtons.forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll(`[data-target="${sectionIds[idx]}"]`).forEach(b=>b.classList.add('active'));
+    }
+  });
+},{threshold:0.5});
+sections.forEach(s=>sectionObserver.observe(s));
+
+// ---------- Keyboard navigation ----------
+window.addEventListener('keydown', (e)=>{
+  if(['ArrowDown','PageDown'].includes(e.key)){
+    e.preventDefault();
+    goToSection(currentSectionIdx + 1);
+  } else if(['ArrowUp','PageUp'].includes(e.key)){
+    e.preventDefault();
+    goToSection(currentSectionIdx - 1);
+  } else if(e.key === 'Home'){
+    e.preventDefault();
+    goToSection(0);
+  } else if(e.key === 'End'){
+    e.preventDefault();
+    goToSection(sections.length - 1);
+  }
+});
+
+// ---------- Logo returns to top ----------
+const brandLogo = document.getElementById('brand-logo');
+brandLogo.addEventListener('click', ()=> goToSection(0));
+brandLogo.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); goToSection(0); }
+});
+
+// ---------- Cursor glow in hero ----------
+const heroSection = document.getElementById('act-1');
+const heroGlow = document.getElementById('hero-glow');
+if(heroSection && heroGlow && window.matchMedia('(pointer:fine)').matches){
+  heroSection.addEventListener('mousemove', (e)=>{
+    heroGlow.style.left = e.clientX + 'px';
+    heroGlow.style.top = e.clientY + 'px';
+  });
+}
+
+// ---------- Scroll progress (feeds the nav line) ----------
+const navEl = document.getElementById('progress-nav');
+function updateScrollProgress(){
+  const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+  const fraction = scrollable > 0 ? Math.min(1, Math.max(0, window.scrollY / scrollable)) : 0;
+  navEl.style.setProperty('--scroll-progress', fraction);
+}
+window.addEventListener('scroll', updateScrollProgress, {passive:true});
+window.addEventListener('resize', updateScrollProgress);
+updateScrollProgress();
+
+// ---------- Video reliability ----------
+const heroVideo = document.getElementById('hero-video');
+if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+  if(heroVideo) heroVideo.removeAttribute('autoplay');
+} else if(heroVideo){
+  // Some mobile browsers block autoplay even when muted; retry on first interaction.
+  const tryPlay = ()=> heroVideo.play().catch(()=>{});
+  tryPlay();
+  ['touchstart','click','scroll'].forEach(evt=>{
+    document.addEventListener(evt, tryPlay, {once:true, passive:true});
+  });
+  // Pause when the tab isn't visible to save battery/bandwidth.
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.hidden){ heroVideo.pause(); }
+    else if(!prefersReducedMotion){ tryPlay(); }
+  });
+}
+
+const canvas = document.getElementById('hero-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, particles = [];
+const PARTICLE_COUNT = 90;
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function resize(){
+  W = canvas.width = canvas.offsetWidth * devicePixelRatio;
+  H = canvas.height = canvas.offsetHeight * devicePixelRatio;
+  // Keep particles proportionally placed instead of letting them drift outside the new bounds.
+  if(particles.length){
+    particles.forEach(p=>{
+      p.x = Math.min(p.x, W);
+      p.y = Math.min(p.y, H);
+    });
+  }
+}
+resize();
+window.addEventListener('resize', resize);
+
+function initParticles(){
+  particles = [];
+  for(let i=0;i<PARTICLE_COUNT;i++){
+    particles.push({
+      x: Math.random()*W,
+      y: Math.random()*H,
+      r: Math.random()*1.6 + 0.6,
+      vx: (Math.random()-0.5)*0.15,
+      vy: (Math.random()-0.5)*0.15,
+      pulse: Math.random()*Math.PI*2,
+      isHot: Math.random() < 0.08
+    });
+  }
+}
+initParticles();
+
+let animationRunning = true;
+document.addEventListener('visibilitychange', ()=>{
+  animationRunning = !document.hidden;
+  if(animationRunning) requestAnimationFrame(draw);
+});
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+
+  // connecting lines for nearby particles
+  ctx.strokeStyle = 'rgba(61,219,217,0.08)';
+  ctx.lineWidth = 1;
+  for(let i=0;i<particles.length;i++){
+    for(let j=i+1;j<particles.length;j++){
+      const dx = particles[i].x - particles[j].x;
+      const dy = particles[i].y - particles[j].y;
+      const dist = Math.sqrt(dx*dx+dy*dy);
+      if(dist < 140*devicePixelRatio){
+        ctx.beginPath();
+        ctx.moveTo(particles[i].x, particles[i].y);
+        ctx.lineTo(particles[j].x, particles[j].y);
+        ctx.stroke();
+      }
+    }
+  }
+
+  particles.forEach(p=>{
+    p.pulse += 0.02;
+    const glow = p.isHot ? (Math.sin(p.pulse)*0.5+0.5) : 0.3;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * devicePixelRatio * (p.isHot ? 1.8 : 1), 0, Math.PI*2);
+    ctx.fillStyle = p.isHot
+      ? `rgba(255,107,74,${0.3 + glow*0.5})`
+      : `rgba(61,219,217,${0.25 + glow*0.2})`;
+    ctx.fill();
+
+    if(!prefersReducedMotion){
+      p.x += p.vx * devicePixelRatio;
+      p.y += p.vy * devicePixelRatio;
+      if(p.x < 0 || p.x > W) p.vx *= -1;
+      if(p.y < 0 || p.y > H) p.vy *= -1;
+    }
+  });
+
+  if(animationRunning) requestAnimationFrame(draw);
+}
+draw();
+
+// ==================================================================
+// ACT IV — Simulation engine
+// ==================================================================
+const PHASES = [
+  {
+    time:'T-72h', tag:'Detección', title:'Formación detectada',
+    desc:'Los sensores satelitales identifican la formación de un sistema tropical a 340 km de la costa. El SIATCC comienza a monitorear su trayectoria.',
+    risk:22, riskLabel:'Bajo', riskColor:'var(--accent)',
+    cyclone:{x:520,y:70,scale:1}, riskZone:{opacity:0, rx:70, ry:55},
+    routes:false, shelters:'idle', alert:'none', recipients:[],
+    gaugeTitle:'Índice de Riesgo de Desplazamiento (IRD)',
+    stats:[
+      {k:'Probabilidad de impacto', v:'68%'},
+      {k:'Población en zona de riesgo', v:'340,000 hab.'},
+      {k:'Ventana de anticipación', v:'72 horas'}
+    ]
+  },
+  {
+    time:'T-60h', tag:'Cálculo del IRD', title:'El sistema calcula el riesgo',
+    desc:'El Índice de Riesgo de Desplazamiento cruza la intensidad estimada, la densidad poblacional y la vulnerabilidad de la infraestructura local.',
+    risk:47, riskLabel:'Moderado', riskColor:'var(--warn)',
+    cyclone:{x:460,y:108,scale:1}, riskZone:{opacity:0.28, rx:75, ry:58},
+    routes:false, shelters:'idle', alert:'none', recipients:[],
+    gaugeTitle:'Índice de Riesgo de Desplazamiento (IRD)',
+    stats:[
+      {k:'Intensidad estimada', v:'Categoría 3'},
+      {k:'Densidad poblacional', v:'Alta'},
+      {k:'Vulnerabilidad de infraestructura', v:'Media'}
+    ]
+  },
+  {
+    time:'T-48h', tag:'Alerta emitida', title:'La alerta sale a todos los canales',
+    desc:'Con el riesgo confirmado, el SIATCC emite una alerta simultánea a gobierno local, ACNUR, organizaciones humanitarias y la comunidad.',
+    risk:71, riskLabel:'Alto', riskColor:'var(--alert-a)',
+    cyclone:{x:390,y:150,scale:1}, riskZone:{opacity:0.45, rx:78, ry:60},
+    routes:false, shelters:'idle', alert:'active', recipients:['gobierno','acnur','ongs','comunidad'],
+    gaugeTitle:'Índice de Riesgo de Desplazamiento (IRD)',
+    stats:[
+      {k:'Canales notificados', v:'4 / 4'},
+      {k:'Tiempo desde la detección', v:'24 h'},
+      {k:'Alcance estimado', v:'340,000 personas'}
+    ]
+  },
+  {
+    time:'T-24h', tag:'Coordinación', title:'Rutas y refugios se activan',
+    desc:'El sistema despliega rutas de evacuación calculadas y habilita refugios cercanos con su capacidad disponible en tiempo real.',
+    risk:84, riskLabel:'Crítico', riskColor:'var(--alert-b)',
+    cyclone:{x:320,y:190,scale:1}, riskZone:{opacity:0.6, rx:82, ry:63},
+    routes:true, shelters:'active', alert:'active', recipients:['gobierno','acnur','ongs','comunidad'],
+    gaugeTitle:'Índice de Riesgo de Desplazamiento (IRD)',
+    stats:[
+      {k:'Refugios habilitados', v:'5'},
+      {k:'Capacidad total', v:'42,000 personas'},
+      {k:'Rutas de evacuación activas', v:'6'}
+    ]
+  },
+  {
+    time:'T-0', tag:'Impacto', title:'El ciclón toca tierra',
+    desc:'El sistema resume el resultado de la anticipación: cuánto tiempo se ganó y cuánta población alcanzó a evacuar antes del impacto.',
+    risk:91, riskLabel:'Crítico', riskColor:'var(--alert-b)',
+    cyclone:{x:250,y:228,scale:0.85}, riskZone:{opacity:0.7, rx:85, ry:65},
+    routes:true, shelters:'active', alert:'active', recipients:['gobierno','acnur','ongs','comunidad'],
+    gaugeTitle:'Índice de Riesgo de Desplazamiento (IRD)',
+    stats:[
+      {k:'Tiempo de anticipación ganado', v:'71 horas'},
+      {k:'Población evacuada (estimado)', v:'312,000'},
+      {k:'Refugios activos', v:'5 / 5'}
+    ]
+  },
+  {
+    time:'T+72h', tag:'Post-evento', title:'El sistema aprende del evento real',
+    desc:'Los datos reales del impacto retroalimentan al IRD, ajustando el modelo para que la próxima predicción sea más precisa.',
+    risk:96, riskLabel:'Efectividad de la respuesta', riskColor:'var(--success)',
+    cyclone:{x:250,y:228,scale:0}, riskZone:{opacity:0.12, rx:85, ry:65, resolved:true},
+    routes:true, shelters:'active', alert:'resolved', recipients:['gobierno','acnur','ongs','comunidad'],
+    gaugeTitle:'Efectividad de la respuesta',
+    stats:[
+      {k:'Precisión de la predicción', v:'94%'},
+      {k:'Tiempo de respuesta vs. objetivo', v:'71h de 72h posibles'},
+      {k:'Mejora aplicada al modelo IRD', v:'+3.2% precisión'}
+    ]
+  }
+];
+
+const ALERT_COPY = {
+  none:{tag:'Sin alerta activa', title:'Monitoreo continuo', desc:'El sistema observa la región sin detectar riesgo significativo por ahora.'},
+  active:{tag:'Alerta activa', title:'Emergencia en curso', desc:'La alerta fue emitida y los canales de coordinación están activos.'},
+  resolved:{tag:'Emergencia resuelta', title:'Datos enviados al modelo IRD', desc:'El sistema cierra el ciclo y aplica lo aprendido a la próxima predicción.'}
+};
+
+let currentPhase = 0;
+let autoplayTimer = null;
+
+// Build scrubber steps
+const scrubberTrack = document.getElementById('scrubber-track');
+PHASES.forEach((p, i)=>{
+  const btn = document.createElement('button');
+  btn.className = 'scrubber-step';
+  btn.setAttribute('role','tab');
+  btn.setAttribute('aria-label', `${p.time} — ${p.tag}`);
+  btn.innerHTML = `<span class="marker"></span><span class="step-time">${p.time}</span>`;
+  btn.addEventListener('click', ()=> setPhase(i, true));
+  scrubberTrack.appendChild(btn);
+});
+const scrubberSteps = scrubberTrack.querySelectorAll('.scrubber-step');
+
+// Cache DOM refs
+const gaugeArc = document.getElementById('gauge-arc');
+const gaugeValue = document.getElementById('gauge-value');
+const gaugeLabel = document.getElementById('gauge-label');
+const gaugeTitleEl = document.getElementById('gauge-title');
+const alertPanel = document.getElementById('alert-panel');
+const alertTag = document.getElementById('alert-tag');
+const alertTitle = document.getElementById('alert-title');
+const alertDesc = document.getElementById('alert-desc');
+const recipientsEl = document.getElementById('recipients');
+const statsEl = document.getElementById('sim-stats');
+const phaseTag = document.getElementById('phase-tag');
+const phaseTitle = document.getElementById('phase-title');
+const phaseDesc = document.getElementById('phase-desc');
+const cycloneEl = document.getElementById('cyclone');
+const riskZoneEl = document.getElementById('risk-zone');
+const shelterEls = document.querySelectorAll('.shelter-dot');
+const routeEls = document.querySelectorAll('.route-line');
+const playBtn = document.getElementById('play-btn');
+const playBtnLabel = document.getElementById('play-btn-label');
+
+const GAUGE_ARC_LENGTH = 251.2;
+
+// Precompute route lengths so the "drawing" animation is accurate
+routeEls.forEach(r=>{
+  const len = r.getTotalLength();
+  r.style.strokeDasharray = len;
+  r.style.strokeDashoffset = len;
+  r.dataset.len = len;
+});
+
+function setPhase(idx, userInitiated){
+  currentPhase = idx;
+  const p = PHASES[idx];
+
+  // Scrubber
+  scrubberSteps.forEach((s,i)=>{
+    s.classList.toggle('active', i === idx);
+    s.classList.toggle('done', i < idx);
+  });
+  scrubberTrack.style.setProperty('--phase-progress', idx/(PHASES.length-1));
+
+  // Phase copy
+  phaseTag.textContent = `${p.time} · ${p.tag}`;
+  phaseTitle.textContent = p.title;
+  phaseDesc.textContent = p.desc;
+
+  // Gauge
+  gaugeTitleEl.textContent = p.gaugeTitle;
+  const offset = GAUGE_ARC_LENGTH * (1 - p.risk/100);
+  gaugeArc.style.strokeDashoffset = offset;
+  gaugeArc.style.stroke = p.riskColor;
+  gaugeValue.textContent = p.risk;
+  gaugeValue.style.color = p.riskColor;
+  gaugeLabel.textContent = p.riskLabel;
+  gaugeLabel.style.color = p.riskColor;
+
+  // Map: cyclone
+  cycloneEl.setAttribute('transform', `translate(${p.cyclone.x},${p.cyclone.y}) scale(${p.cyclone.scale})`);
+  cycloneEl.style.opacity = p.cyclone.scale === 0 ? '0' : '1';
+
+  // Map: risk zone
+  riskZoneEl.style.opacity = p.riskZone.opacity;
+  riskZoneEl.setAttribute('rx', p.riskZone.rx);
+  riskZoneEl.setAttribute('ry', p.riskZone.ry);
+  riskZoneEl.setAttribute('fill', p.riskZone.resolved ? 'var(--success)' : 'url(#riskGrad)');
+
+  // Map: routes
+  routeEls.forEach(r=>{
+    if(p.routes){
+      r.classList.add('active');
+      r.style.strokeDashoffset = 0;
+    } else {
+      r.classList.remove('active');
+      r.style.strokeDashoffset = r.dataset.len;
+    }
+  });
+
+  // Map: shelters
+  shelterEls.forEach(s=>{
+    s.setAttribute('fill', p.shelters === 'active' ? 'var(--success)' : 'var(--line)');
+    s.setAttribute('r', p.shelters === 'active' ? 6 : 5);
+  });
+
+  // Alert panel
+  const copy = ALERT_COPY[p.alert];
+  alertPanel.classList.remove('is-active','is-resolved');
+  if(p.alert === 'active') alertPanel.classList.add('is-active');
+  if(p.alert === 'resolved') alertPanel.classList.add('is-resolved');
+  alertTag.textContent = copy.tag;
+  alertTitle.textContent = copy.title;
+  alertDesc.textContent = p.desc;
+
+  // Recipients
+  recipientsEl.querySelectorAll('span').forEach(s=>{
+    s.classList.toggle('notified', p.recipients.includes(s.dataset.r));
+  });
+
+  // Stats
+  statsEl.innerHTML = p.stats.map(st => `
+    <div class="sim-stat-row">
+      <span class="stat-k">${st.k}</span>
+      <span class="stat-v">${st.v}</span>
+    </div>`).join('');
+
+  if(userInitiated) stopAutoplay();
+}
+
+function stopAutoplay(){
+  if(autoplayTimer){
+    clearInterval(autoplayTimer);
+    autoplayTimer = null;
+    playBtn.setAttribute('aria-pressed','false');
+    playBtnLabel.textContent = 'Reproducir automáticamente';
+  }
+}
+
+playBtn.addEventListener('click', ()=>{
+  if(autoplayTimer){
+    stopAutoplay();
+    return;
+  }
+  playBtn.setAttribute('aria-pressed','true');
+  playBtnLabel.textContent = 'Pausar';
+  autoplayTimer = setInterval(()=>{
+    const next = (currentPhase + 1) % PHASES.length;
+    setPhase(next, false);
+  }, 3200);
+});
+
+setPhase(0, false);
+</script>
+
+</body>
+</html>
